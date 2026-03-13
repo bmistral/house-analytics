@@ -134,7 +134,7 @@ departments = [str(d) for d in departments if str(d).strip() != '']
 selected_departments = st.sidebar.multiselect(
     "1. Département (Optionnel)", 
     options=departments,
-    default=None,
+    default=["31"] if "31" in departments else None,
     help="Choisissez un ou plusieurs départements pour restreindre la liste des villes."
 )
 
@@ -143,8 +143,10 @@ cities = sorted(filtered_by_dept['nom_commune'].dropna().unique().tolist())
 
 # Find index of Toulouse for default selection
 default_city_index = 0
-if "TOULOUSE" in cities:
-    default_city_index = cities.index("TOULOUSE") + 1
+# Case insensitive check for Toulouse
+toulouse_options = [i for i, c in enumerate(cities) if c.upper() == "TOULOUSE"]
+if toulouse_options:
+    default_city_index = toulouse_options[0] + 1
 
 selected_city = st.sidebar.selectbox(
     "2. Ville de référence", 
@@ -245,7 +247,50 @@ if not map_df.empty:
 
     # Configure map
     center_coord = {"lat": city_center[0], "lon": city_center[1]} if city_center else {"lat": 46.22, "lon": 2.21} # Par défaut centre de la France
-    zoom_level = 10 if city_center else 5
+    zoom_level = 11 if city_center else 5
+
+    # Create a circle GeoJSON for visualization if a city is selected
+    layers = []
+    if city_center:
+        # Generate points for a circle
+        angles = np.linspace(0, 2*np.pi, 100)
+        # Earth radius in km
+        R = 6371.0
+        d_lat = radius_km / R
+        d_lon = radius_km / (R * np.cos(np.pi * city_center[0] / 180.0))
+        
+        circle_lat = city_center[0] + np.degrees(d_lat * np.cos(angles))
+        circle_lon = city_center[1] + np.degrees(d_lon * np.sin(angles))
+        
+        layers = [{
+            "source": {
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[list(z) for z in zip(circle_lon, circle_lat)]]
+                    }
+                }]
+            },
+            "type": "fill",
+            "color": "rgba(255, 0, 0, 0.15)", # Very light red fill
+            "below": "traces"
+        }, {
+            "source": {
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [list(z) for z in zip(circle_lon, circle_lat)]
+                    }
+                }]
+            },
+            "type": "line",
+            "color": "red",
+            "line": {"width": 2}
+        }]
 
     fig_map = px.scatter_mapbox(
         map_draw_df, 
@@ -253,6 +298,7 @@ if not map_df.empty:
         lon="longitude", 
         color="valeur_fonciere",
         hover_name="nom_commune",
+        opacity=0.35, # Points more transparent as requested
         hover_data={
             "latitude": False,
             "longitude": False,
@@ -264,13 +310,18 @@ if not map_df.empty:
         color_continuous_scale=px.colors.sequential.Viridis,
         zoom=zoom_level,
         center=center_coord,
-        height=550,
+        height=600,
         labels={"valeur_fonciere": "Prix (€)"}
     )
-    fig_map.update_layout(mapbox_style="carto-positron")
-    fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     
-    st.plotly_chart(fig_map, width="stretch")
+    # Use open-street-map for a "less transparent" / more vivid background
+    fig_map.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_layers=layers,
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+    
+    st.plotly_chart(fig_map, width="stretch", config={'scrollZoom': True})
 else:
     st.info("Aucune donnée géolocalisée à afficher.")
 
