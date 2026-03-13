@@ -42,14 +42,14 @@ def create_map_fig(df, metric_col, metric_label, city_center, radius_km, zoom_le
     max_val_map = map_draw_df[metric_col].quantile(0.95) if not map_draw_df.empty else 10000
     if max_val_map == 0 or np.isnan(max_val_map): max_val_map = 10000
 
-    fig = px.scatter_mapbox(
+    fig = px.scatter_map(
         map_draw_df, lat="latitude", lon="longitude", color=metric_col,
         hover_name="nom_commune", opacity=0.35,
         hover_data={"latitude": False, "longitude": False, "valeur_fonciere": ":.0f", "prix_m2": ":.0f", "surface_reelle_bati": True, "surface_terrain": True, "type_local": True, "nombre_pieces_principales": True},
         color_continuous_scale="Plasma", range_color=[0, max_val_map],
         zoom=zoom_level, center=center_coord, height=600, labels={metric_col: metric_label}
     )
-    fig.update_layout(mapbox_style="open-street-map", mapbox_layers=layers, margin={"r":0,"t":0,"l":0,"b":0})
+    fig.update_layout(map_style="open-street-map", map_layers=layers, margin={"r":0,"t":0,"l":0,"b":0})
     return fig
 
 def create_correlation_heatmap(corr_matrix):

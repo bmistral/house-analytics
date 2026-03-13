@@ -114,3 +114,18 @@ def get_estimation_stats(local_df, input_surface, input_terrain, is_terrain=Fals
         'high': surface_to_use * q3_m2,
         'median_m2': median_m2
     }
+
+def calculate_similarity_score(bench_df, target_surface, target_pieces, is_terrain=False):
+    """Calculate a simple similarity score based on surface and pieces."""
+    df = bench_df.copy()
+    if is_terrain:
+        surf_std = max(df['surface_terrain'].std(), 1)
+        df['diff_score'] = np.abs(df['surface_terrain'] - target_surface) / surf_std
+    else:
+        surf_std = max(df['surface_reelle_bati'].std(), 1)
+        pieces_std = max(df['nombre_pieces_principales'].std(), 1)
+        df['diff_score'] = (
+            np.abs(df['surface_reelle_bati'] - target_surface) / surf_std +
+            np.abs(df['nombre_pieces_principales'] - target_pieces) / pieces_std
+        )
+    return df

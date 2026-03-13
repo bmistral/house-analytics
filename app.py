@@ -197,7 +197,7 @@ with tab_estimer:
                 st.markdown("#### 🏗️ Analyse Foncière (Terrain seul)")
                 land_d = filtered_df[filtered_df['type_local'].str.contains('Terrain', case=False, na=False)].copy()
                 if not land_d.empty:
-                    land_d['prix_m2_terrain'] = land_d['valeur_fonciere'] / land_d['surface_terrain'].replace(0, np.nan)
+                    land_d.loc[:, 'prix_m2_terrain'] = land_d['valeur_fonciere'] / land_d['surface_terrain'].replace(0, np.nan)
                     m_land_m2 = land_d['prix_m2_terrain'].median()
                     est_land = in_terr * m_land_m2
                     st.write(f"Prix médian terrain nu : **{m_land_m2:,.0f} €/m²**")
@@ -213,7 +213,7 @@ with tab_estimer:
         if stats:
             m_suffix = "m² de terrain" if is_t else "m² habitable"
             hist_df = local_df.copy()
-            hist_df['prix_m2_calc'] = hist_df['valeur_fonciere'] / (hist_df['surface_terrain'] if is_t else hist_df['surface_reelle_bati']).replace(0, np.nan)
+            hist_df.loc[:, 'prix_m2_calc'] = hist_df['valeur_fonciere'] / (hist_df['surface_terrain'] if is_t else hist_df['surface_reelle_bati']).replace(0, np.nan)
             st.plotly_chart(visuals.create_dist_histogram(hist_df, 'prix_m2_calc', f'Prix / {m_suffix}', f"Distribution ({in_type})", stats['median_m2']))
 
     st.markdown("---")
@@ -229,5 +229,5 @@ with tab_data:
     st.markdown("### 📋 Données Brutes")
     mode = st.radio("Affichage", ["Top N", "Toutes"], horizontal=True)
     n_show = st.slider("Lignes", 100, 10000, 2000) if mode == "Top N" else len(filtered_df)
-    st.dataframe(filtered_df.head(n_show), use_container_width=True, hide_index=True)
+    st.dataframe(filtered_df.head(n_show), width='stretch', hide_index=True)
 
