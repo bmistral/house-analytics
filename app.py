@@ -26,6 +26,17 @@ st.markdown("""
     h1, h2, h3 { color: #1e293b; font-family: 'Inter', sans-serif; }
     ul[role="listbox"], div[data-baseweb="select"] > div, div[data-baseweb="popover"] > div { background-color: white !important; }
     .st-emotion-cache-16idsys p { font-size: 1.1rem; color: #475569; }
+    
+    /* Make tabs sticky */
+    div[data-testid="stTabList"] {
+        position: sticky;
+        top: 2.8rem;
+        background-color: #f8fafc;
+        z-index: 1000;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e2e8f0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -133,26 +144,24 @@ with tab_overview:
         st.plotly_chart(visuals.create_map_fig(map_draw_df.sample(min(len(map_draw_df), 10000), random_state=42), metric_col, metric_label, city_center, radius_km, 11 if city_center else 5), config={'scrollZoom': True})
     
     st.markdown("---")
-    st.markdown("### 📈 Analyse de Corrélation")
+    st.markdown("### 📈 Analyse Graphique")
+    
     vis_df = plot_df[
         (plot_df['valeur_fonciere'] <= plot_df['valeur_fonciere'].quantile(0.95)) &
         (plot_df['surface_reelle_bati'] <= plot_df['surface_reelle_bati'].quantile(0.98)) &
         (plot_df['surface_terrain'] <= plot_df['surface_terrain'].quantile(0.95))
     ]
-    
-    c_plot1, c_plot2 = st.columns([2, 1])
-    with c_plot2:
-        corr_matrix = filtered_df[['valeur_fonciere', 'surface_reelle_bati', 'surface_terrain']].replace(0, np.nan).corr()
-        st.plotly_chart(visuals.create_correlation_heatmap(corr_matrix))
-    with c_plot1:
-        viz_living = vis_df[vis_df['surface_reelle_bati'] > 0]
-        if not viz_living.empty:
-            st.plotly_chart(visuals.create_scatter_plot(viz_living, 'surface_reelle_bati', 'valeur_fonciere', 'type_local', 'Surf. Habitable (m²)', 'Prix (€)'))
 
+    # Living Area Plot
+    viz_living = vis_df[vis_df['surface_reelle_bati'] > 0]
+    if not viz_living.empty:
+        st.plotly_chart(visuals.create_scatter_plot(viz_living, 'surface_reelle_bati', 'valeur_fonciere', 'type_local', 'Surf. Habitable (m²)', 'Prix (€)'), use_container_width=True)
+
+    # Land Area Plot
     st.markdown("#### Prix vs Surface Terrain")
     viz_land = vis_df[vis_df['surface_terrain'] > 0]
     if not viz_land.empty:
-        st.plotly_chart(visuals.create_scatter_plot(viz_land, 'surface_terrain', 'valeur_fonciere', 'type_local', 'Surf. Terrain (m²)', 'Prix (€)'))
+        st.plotly_chart(visuals.create_scatter_plot(viz_land, 'surface_terrain', 'valeur_fonciere', 'type_local', 'Surf. Terrain (m²)', 'Prix (€)'), use_container_width=True)
 
 with tab_expert:
     st.markdown("### 🏘️ Analyse par Typologie")
@@ -255,10 +264,9 @@ with tab_data:
             if pd.notna(min_date) and pd.notna(max_date):
                 date_range = st.date_input(
                     "Période",
-                    value=None, # Empty by default
+                    value=(min_date.date(), max_date.date()),
                     min_value=min_date.date(),
-                    max_value=max_date.date(),
-                    placeholder="Sélectionner une plage..."
+                    max_value=max_date.date()
                 )
             else:
                 st.info("Dates indisponibles")
@@ -267,12 +275,12 @@ with tab_data:
         with fcol2:
             # Nature Filter
             natures = sorted(raw_base_df['nature_mutation'].fillna('Inconnu').unique().tolist())
-            selected_natures = st.multiselect("Nature de la mutation", options=natures, default=[])
+            selected_natures = st.multiselect("Nature de la mutation", options=natures, default=natures)
 
         with fcol3:
             # Local Type Filter (more granular than sidebar)
             types = sorted(raw_base_df['type_local'].unique().tolist())
-            selected_raw_types = st.multiselect("Type de bien (Détaillé)", options=types, default=[])
+            selected_raw_types = st.multiselect("Type de bien (Détaillé)", options=types, default=types)
 
     # Apply Tab-Specific Filters
     tab_df = raw_base_df.copy()
