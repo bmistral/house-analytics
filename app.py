@@ -231,337 +231,372 @@ elif selected_departments:
 st.title("🇫🇷 Analyse des Données Immobilières en France")
 st.markdown("Explorez les corrélations entre les prix des biens, les surfaces habitables et les surfaces des terrains à travers la France.")
 
-# KPI Row
-st.markdown("### 📊 Indicateurs Clés")
-col1, col2, col3, col4 = st.columns(4)
+# Create Tabs
+tab_overview, tab_expert, tab_data = st.tabs(["🏠 Vue d'ensemble", "💎 Analyse Expert", "📋 Données Brutes"])
 
-total_transactions = len(filtered_df)
-avg_price = filtered_df['valeur_fonciere'].mean() if total_transactions > 0 else 0
-avg_living_area = filtered_df[filtered_df['surface_reelle_bati'] > 0]['surface_reelle_bati'].mean()
-avg_land_area = filtered_df[filtered_df['surface_terrain'] > 0]['surface_terrain'].mean()
+with tab_overview:
+    # KPI Row
+    st.markdown("### 📊 Indicateurs Clés")
+    col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Total des Transactions", f"{total_transactions:,}")
-col2.metric("Prix Moyen", f"{avg_price:,.0f} €" if not np.isnan(avg_price) else "N/A")
-
-if analysis_metric == "Prix au m² (€/m²)":
-    avg_m2 = filtered_df['prix_m2'].mean()
-    col3.metric("Prix m² Moyen", f"{avg_m2:,.0f} €/m²" if not np.isnan(avg_m2) else "N/A")
-else:
-    col3.metric("Surface Habitable Moyenne", f"{avg_living_area:,.0f} m²" if not np.isnan(avg_living_area) else "N/A")
-
-col4.metric("Surface Terrain Moyenne", f"{avg_land_area:,.0f} m²" if not np.isnan(avg_land_area) else "N/A")
-
-st.markdown("---")
-
-if total_transactions == 0:
-    st.warning("Aucune donnée disponible pour ces filtres. Veuillez ajuster vos critères.")
-    st.stop()
-elif total_transactions > 100000:
-    st.info(f"Échantillonnage des données. Pour des raisons de performances de la carte et des nuages de points, un échantillon aléatoire de 100 000 points est utilisé (sur les {total_transactions:,} disponibles).")
-    plot_df = filtered_df.sample(100000, random_state=42)
-else:
-    plot_df = filtered_df
-
-# -----------------------------------------------------------------------------
-# Map Visualization
-# -----------------------------------------------------------------------------
-st.markdown("### 🗺️ Carte des Transactions")
-map_df = plot_df.dropna(subset=['latitude', 'longitude'])
-
-if not map_df.empty:
-    if len(map_df) > 10000:
-        st.caption("Pour des raisons de performance, seules 10 000 transactions sont affichées sur la carte.")
-        map_draw_df = map_df.sample(10000, random_state=42)
+    total_transactions = len(filtered_df)
+    avg_price = filtered_df['valeur_fonciere'].mean() if total_transactions > 0 else 0
+    avg_living_area = filtered_df[filtered_df['surface_reelle_bati'] > 0]['surface_reelle_bati'].mean()
+    avg_land_area = filtered_df[filtered_df['surface_terrain'] > 0]['surface_terrain'].mean()
+    
+    col1.metric("Total des Transactions", f"{total_transactions:,}")
+    col2.metric("Prix Moyen", f"{avg_price:,.0f} €" if not np.isnan(avg_price) else "N/A")
+    
+    if analysis_metric == "Prix au m² (€/m²)":
+        avg_m2 = filtered_df['prix_m2'].mean()
+        col3.metric("Prix m² Moyen", f"{avg_m2:,.0f} €/m²" if not np.isnan(avg_m2) else "N/A")
     else:
-        map_draw_df = map_df
-
-    # Configure map
-    center_coord = {"lat": city_center[0], "lon": city_center[1]} if city_center else {"lat": 46.22, "lon": 2.21} # Par défaut centre de la France
-    zoom_level = 11 if city_center else 5
-
-    # Create a circle GeoJSON for visualization if a city is selected
-    layers = []
-    if city_center:
-        # Generate points for a circle
-        angles = np.linspace(0, 2*np.pi, 100)
-        # Earth radius in km
-        R = 6371.0
-        d_lat = radius_km / R
-        d_lon = radius_km / (R * np.cos(np.pi * city_center[0] / 180.0))
-        
-        circle_lat = city_center[0] + np.degrees(d_lat * np.cos(angles))
-        circle_lon = city_center[1] + np.degrees(d_lon * np.sin(angles))
-        
-        layers = [{
-            "source": {
-                "type": "FeatureCollection",
-                "features": [{
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[list(z) for z in zip(circle_lon, circle_lat)]]
-                    }
-                }]
+        col3.metric("Surface Habitable Moyenne", f"{avg_living_area:,.0f} m²" if not np.isnan(avg_living_area) else "N/A")
+    
+    col4.metric("Surface Terrain Moyenne", f"{avg_land_area:,.0f} m²" if not np.isnan(avg_land_area) else "N/A")
+    
+    st.markdown("---")
+    
+    if total_transactions == 0:
+        st.warning("Aucune donnée disponible pour ces filtres. Veuillez ajuster vos critères.")
+        st.stop()
+    elif total_transactions > 100000:
+        st.info(f"Échantillonnage des données. Pour des raisons de performances de la carte et des nuages de points, un échantillon aléatoire de 100 000 points est utilisé (sur les {total_transactions:,} disponibles).")
+        plot_df = filtered_df.sample(100000, random_state=42)
+    else:
+        plot_df = filtered_df
+    
+    # -----------------------------------------------------------------------------
+    # Map Visualization
+    # -----------------------------------------------------------------------------
+    st.markdown("### 🗺️ Carte des Transactions")
+    map_df = plot_df.dropna(subset=['latitude', 'longitude'])
+    
+    if not map_df.empty:
+        if len(map_df) > 10000:
+            st.caption("Pour des raisons de performance, seules 10 000 transactions sont affichées sur la carte.")
+            map_draw_df = map_df.sample(10000, random_state=42)
+        else:
+            map_draw_df = map_df
+    
+        # Configure map
+        center_coord = {"lat": city_center[0], "lon": city_center[1]} if city_center else {"lat": 46.22, "lon": 2.21} # Par défaut centre de la France
+        zoom_level = 11 if city_center else 5
+    
+        # Create a circle GeoJSON for visualization if a city is selected
+        layers = []
+        if city_center:
+            # Generate points for a circle
+            angles = np.linspace(0, 2*np.pi, 100)
+            # Earth radius in km
+            R = 6371.0
+            d_lat = radius_km / R
+            d_lon = radius_km / (R * np.cos(np.pi * city_center[0] / 180.0))
+            
+            circle_lat = city_center[0] + np.degrees(d_lat * np.cos(angles))
+            circle_lon = city_center[1] + np.degrees(d_lon * np.sin(angles))
+            
+            layers = [{
+                "source": {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[list(z) for z in zip(circle_lon, circle_lat)]]
+                        }
+                    }]
+                },
+                "type": "fill",
+                "color": "rgba(255, 0, 0, 0.15)", # Very light red fill
+                "below": "traces"
+            }, {
+                "source": {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [list(z) for z in zip(circle_lon, circle_lat)]
+                        }
+                    }]
+                },
+                "type": "line",
+                "color": "red",
+                "line": {"width": 2}
+            }]
+    
+        # Calculate price percentile for better color distribution on the map
+        # We use the 95th percentile as the max for the color scale to avoid outliers squashing the range
+        max_val_map = map_draw_df[metric_col].quantile(0.95) if not map_draw_df.empty else 10000
+        if max_val_map == 0 or np.isnan(max_val_map): max_val_map = 10000
+    
+        fig_map = px.scatter_mapbox(
+            map_draw_df, 
+            lat="latitude", 
+            lon="longitude", 
+            color=metric_col,
+            hover_name="nom_commune",
+            opacity=0.35, # Points more transparent as requested
+            hover_data={
+                "latitude": False,
+                "longitude": False,
+                "valeur_fonciere": ":.0f", 
+                "prix_m2": ":.0f",
+                "surface_reelle_bati": True, 
+                "surface_terrain": True,
+                "type_local": True,
+                "nombre_pieces_principales": True
             },
-            "type": "fill",
-            "color": "rgba(255, 0, 0, 0.15)", # Very light red fill
-            "below": "traces"
-        }, {
-            "source": {
-                "type": "FeatureCollection",
-                "features": [{
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "LineString",
-                        "coordinates": [list(z) for z in zip(circle_lon, circle_lat)]
-                    }
-                }]
-            },
-            "type": "line",
-            "color": "red",
-            "line": {"width": 2}
-        }]
-
-    # Calculate price percentile for better color distribution on the map
-    # We use the 95th percentile as the max for the color scale to avoid outliers squashing the range
-    max_val_map = map_draw_df[metric_col].quantile(0.95) if not map_draw_df.empty else 10000
-    if max_val_map == 0 or np.isnan(max_val_map): max_val_map = 10000
-
-    fig_map = px.scatter_mapbox(
-        map_draw_df, 
-        lat="latitude", 
-        lon="longitude", 
-        color=metric_col,
-        hover_name="nom_commune",
-        opacity=0.35, # Points more transparent as requested
-        hover_data={
-            "latitude": False,
-            "longitude": False,
-            "valeur_fonciere": ":.0f", 
-            "prix_m2": ":.0f",
-            "surface_reelle_bati": True, 
-            "surface_terrain": True,
-            "type_local": True,
-            "nombre_pieces_principales": True
-        },
-        color_continuous_scale="Plasma", # More vibrant scale
-        range_color=[0, max_val_map], # Clip color scale to handle outliers
-        zoom=zoom_level,
-        center=center_coord,
-        height=600,
-        labels={metric_col: metric_label}
-    )
+            color_continuous_scale="Plasma", # More vibrant scale
+            range_color=[0, max_val_map], # Clip color scale to handle outliers
+            zoom=zoom_level,
+            center=center_coord,
+            height=600,
+            labels={metric_col: metric_label}
+        )
+        
+        # Use open-street-map for a "less transparent" / more vivid background
+        fig_map.update_layout(
+            mapbox_style="open-street-map",
+            mapbox_layers=layers,
+            margin={"r":0,"t":0,"l":0,"b":0}
+        )
+        
+        st.plotly_chart(fig_map, width="stretch", config={'scrollZoom': True})
+    else:
+        st.info("Aucune donnée géolocalisée à afficher.")
     
-    # Use open-street-map for a "less transparent" / more vivid background
-    fig_map.update_layout(
-        mapbox_style="open-street-map",
-        mapbox_layers=layers,
-        margin={"r":0,"t":0,"l":0,"b":0}
-    )
+    st.markdown("---")
     
-    st.plotly_chart(fig_map, width="stretch", config={'scrollZoom': True})
-else:
-    st.info("Aucune donnée géolocalisée à afficher.")
-
-st.markdown("---")
-
-# -----------------------------------------------------------------------------
-# Outlier Filtering for Better Visualization
-# -----------------------------------------------------------------------------
-# We often need to filter upper percentiles to make scatter plots legible
-price_limit = plot_df['valeur_fonciere'].quantile(0.95)
-living_area_limit = plot_df['surface_reelle_bati'].quantile(0.98)
-land_area_limit = plot_df['surface_terrain'].quantile(0.95)
-
-vis_df = plot_df[
-    (plot_df['valeur_fonciere'] <= price_limit) &
-    (plot_df['surface_reelle_bati'] <= living_area_limit) &
-    (plot_df['surface_terrain'] <= land_area_limit)
-]
-
-# -----------------------------------------------------------------------------
-# Visualizations: Correlations
-# -----------------------------------------------------------------------------
-st.markdown("### 📈 Analyse de Corrélation")
-
-# Calculate Correlation Matrix
-# We only want to correlate numerical columns where values are non-zero for meaningful results
-corr_df = filtered_df[['valeur_fonciere', 'surface_reelle_bati', 'surface_terrain']].copy()
-# Replace 0s with NaN for correlation calculation to avoid skewing (e.g., apartments have 0 land)
-corr_df['surface_reelle_bati'] = corr_df['surface_reelle_bati'].replace(0, np.nan)
-corr_df['surface_terrain'] = corr_df['surface_terrain'].replace(0, np.nan)
-corr_matrix = corr_df.corr(method='pearson')
-
-# Layout for plots
-col_plot1, col_plot2 = st.columns([2, 1])
-
-with col_plot2:
-    st.markdown("#### Matrice de Corrélation")
+    # -----------------------------------------------------------------------------
+    # Outlier Filtering for Better Visualization
+    # -----------------------------------------------------------------------------
+    # We often need to filter upper percentiles to make scatter plots legible
+    price_limit = plot_df['valeur_fonciere'].quantile(0.95)
+    living_area_limit = plot_df['surface_reelle_bati'].quantile(0.98)
+    land_area_limit = plot_df['surface_terrain'].quantile(0.95)
     
-    # Create an interactive heatmap using Plotly Graph Objects
-    fig_corr = go.Figure(data=go.Heatmap(
-        z=corr_matrix.values,
-        x=['Prix', 'Surface Habitable', 'Surface Terrain'],
-        y=['Prix', 'Surface Habitable', 'Surface Terrain'],
-        colorscale='Viridis',
-        text=np.round(corr_matrix.values, 2),
-        texttemplate="%{text}",
-        hoverinfo="text"
-    ))
-    fig_corr.update_layout(
-        margin=dict(t=30, l=10, r=10, b=10),
-        height=350,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    st.plotly_chart(fig_corr, width="stretch")
-
-with col_plot1:
-    st.markdown("#### Prix vs Surface Habitable")
-    # We filter out 0 living area for this specific plot
-    viz_living = vis_df[vis_df['surface_reelle_bati'] > 0]
+    vis_df = plot_df[
+        (plot_df['valeur_fonciere'] <= price_limit) &
+        (plot_df['surface_reelle_bati'] <= living_area_limit) &
+        (plot_df['surface_terrain'] <= land_area_limit)
+    ]
     
-    if len(viz_living) > 0:
-        fig_scatter1 = px.scatter(
-            viz_living, 
-            x='surface_reelle_bati', 
+    # -----------------------------------------------------------------------------
+    # Visualizations: Correlations
+    # -----------------------------------------------------------------------------
+    st.markdown("### 📈 Analyse de Corrélation")
+    
+    # Calculate Correlation Matrix
+    # We only want to correlate numerical columns where values are non-zero for meaningful results
+    corr_df = filtered_df[['valeur_fonciere', 'surface_reelle_bati', 'surface_terrain']].copy()
+    # Replace 0s with NaN for correlation calculation to avoid skewing (e.g., apartments have 0 land)
+    corr_df['surface_reelle_bati'] = corr_df['surface_reelle_bati'].replace(0, np.nan)
+    corr_df['surface_terrain'] = corr_df['surface_terrain'].replace(0, np.nan)
+    corr_matrix = corr_df.corr(method='pearson')
+    
+    # Layout for plots
+    col_plot1, col_plot2 = st.columns([2, 1])
+    
+    with col_plot2:
+        st.markdown("#### Matrice de Corrélation")
+        
+        # Create an interactive heatmap using Plotly Graph Objects
+        fig_corr = go.Figure(data=go.Heatmap(
+            z=corr_matrix.values,
+            x=['Prix', 'Surface Habitable', 'Surface Terrain'],
+            y=['Prix', 'Surface Habitable', 'Surface Terrain'],
+            colorscale='Viridis',
+            text=np.round(corr_matrix.values, 2),
+            texttemplate="%{text}",
+            hoverinfo="text"
+        ))
+        fig_corr.update_layout(
+            margin=dict(t=30, l=10, r=10, b=10),
+            height=350,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
+        st.plotly_chart(fig_corr, width="stretch")
+    
+    with col_plot1:
+        st.markdown("#### Prix vs Surface Habitable")
+        # We filter out 0 living area for this specific plot
+        viz_living = vis_df[vis_df['surface_reelle_bati'] > 0]
+        
+        if len(viz_living) > 0:
+            fig_scatter1 = px.scatter(
+                viz_living, 
+                x='surface_reelle_bati', 
+                y='valeur_fonciere',
+                color='type_local',
+                opacity=0.5,
+                labels={
+                    'surface_reelle_bati': 'Surface Habitable (m²)', 
+                    'valeur_fonciere': 'Prix (€)',
+                    'type_local': 'Type de Bien'
+                },
+                color_discrete_sequence=px.colors.qualitative.Pastel
+            )
+            fig_scatter1.update_layout(
+                margin=dict(t=10, l=10, r=10, b=10),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig_scatter1, width="stretch")
+        else:
+            st.info("Pas assez de données avec une surface habitable > 0 après filtrage.")
+    
+    st.markdown("---")
+    
+    # Price vs Land Area Scatter Plot
+    st.markdown("#### Prix vs Surface Terrain")
+    viz_land = vis_df[vis_df['surface_terrain'] > 0]
+    
+    if len(viz_land) > 0:
+        fig_scatter2 = px.scatter(
+            viz_land, 
+            x='surface_terrain', 
             y='valeur_fonciere',
             color='type_local',
             opacity=0.5,
             labels={
-                'surface_reelle_bati': 'Surface Habitable (m²)', 
+                'surface_terrain': 'Surface Terrain (m²)', 
                 'valeur_fonciere': 'Prix (€)',
                 'type_local': 'Type de Bien'
             },
-            color_discrete_sequence=px.colors.qualitative.Pastel
+            color_discrete_sequence=px.colors.qualitative.Set2
         )
-        fig_scatter1.update_layout(
-            margin=dict(t=10, l=10, r=10, b=10),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        fig_scatter2.update_layout(
+             margin=dict(t=10, l=10, r=10, b=10),
+             paper_bgcolor='rgba(0,0,0,0)',
+             plot_bgcolor='rgba(0,0,0,0)',
+             height=500
         )
-        st.plotly_chart(fig_scatter1, width="stretch")
+        st.plotly_chart(fig_scatter2, width="stretch")
     else:
-        st.info("Pas assez de données avec une surface habitable > 0 après filtrage.")
+        st.info("Pas assez de données avec une surface de terrain > 0 après filtrage.")
 
-st.markdown("---")
-
-# Price vs Land Area Scatter Plot
-st.markdown("#### Prix vs Surface Terrain")
-viz_land = vis_df[vis_df['surface_terrain'] > 0]
-
-if len(viz_land) > 0:
-    fig_scatter2 = px.scatter(
-        viz_land, 
-        x='surface_terrain', 
-        y='valeur_fonciere',
-        color='type_local',
-        opacity=0.5,
-        labels={
-            'surface_terrain': 'Surface Terrain (m²)', 
-            'valeur_fonciere': 'Prix (€)',
-            'type_local': 'Type de Bien'
-        },
-        color_discrete_sequence=px.colors.qualitative.Set2
-    )
-    fig_scatter2.update_layout(
-         margin=dict(t=10, l=10, r=10, b=10),
-         paper_bgcolor='rgba(0,0,0,0)',
-         plot_bgcolor='rgba(0,0,0,0)',
-         height=500
-    )
-    st.plotly_chart(fig_scatter2, width="stretch")
-else:
-    st.info("Pas assez de données avec une surface de terrain > 0 après filtrage.")
-
-# -----------------------------------------------------------------------------
-# Expert Segment Analysis: Room Count
-# -----------------------------------------------------------------------------
-st.markdown("---")
-st.markdown("### 🏘️ Analyse par Typologie (Nombre de pièces)")
-col_seg1, col_seg2 = st.columns([1, 2])
-
-# Filter out 0 pieces for meaningful typology analysis
-seg_df = filtered_df[filtered_df['nombre_pieces_principales'] > 0].copy()
-# Simplify pieces: 1, 2, 3, 4, 5+
-seg_df['typologie'] = seg_df['nombre_pieces_principales'].apply(lambda x: f"{int(x)} P" if x < 5 else "5+ P")
-seg_order = ["1 P", "2 P", "3 P", "4 P", "5+ P"]
-
-with col_seg1:
-    st.markdown("#### Répartition des Ventes")
-    type_counts = seg_df['typologie'].value_counts().reindex(seg_order).fillna(0)
-    fig_pie = px.pie(
-        names=type_counts.index, 
-        values=type_counts.values,
-        color_discrete_sequence=px.colors.qualitative.Pastel
-    )
-    fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=300)
-    st.plotly_chart(fig_pie, width="stretch")
-
-with col_seg2:
-    st.markdown("#### Prix au m² Moyen par Typologie")
-    avg_prix_m2 = seg_df.groupby('typologie')['prix_m2'].mean().reindex(seg_order)
-    fig_bar = px.bar(
-        x=avg_prix_m2.index, 
-        y=avg_prix_m2.values,
-        labels={'x': 'Typologie', 'y': 'Prix au m² (€/m²)'},
-        color=avg_prix_m2.index,
-        color_discrete_sequence=px.colors.qualitative.Pastel
-    )
-    # Add labels on bars
-    fig_bar.update_traces(texttemplate='%{y:,.0f} €', textposition='outside')
-    fig_bar.update_layout(height=350, showlegend=False, margin=dict(t=20, b=20))
-    st.plotly_chart(fig_bar, width="stretch")
-
-# -----------------------------------------------------------------------------
-# Raw Data Exploration
-# -----------------------------------------------------------------------------
-st.markdown("---")
-st.markdown("### 📋 Exploration des Données Brutes")
-st.markdown("Visualisez et filtrez les données sélectionnées. Cliquez sur les en-têtes de colonnes pour les trier.")
-
-# Control display size
-col_table1, col_table2 = st.columns([1, 2])
-
-with col_table1:
-    display_mode = st.radio(
-        "Mode d'affichage du tableau",
-        ["Top N", "Toutes les données"],
-        index=0,
-        help="L'affichage de toutes les données peut être lent."
-    )
-
-with col_table2:
-    if display_mode == "Top N":
-        n_rows = st.slider("Nombre de lignes à afficher", min_value=100, max_value=10000, value=2000, step=100)
-        display_df = filtered_df.head(n_rows)
-        st.info(f"Affichage des {len(display_df):,} premières lignes sur {len(filtered_df):,} disponibles.")
+with tab_expert:
+    # -----------------------------------------------------------------------------
+    # Expert Segment Analysis: Room Count
+    # -----------------------------------------------------------------------------
+    st.markdown("### 🏘️ Analyse par Typologie (Nombre de pièces)")
+    
+    # Check if we have data
+    if total_transactions > 0:
+        col_seg1, col_seg2 = st.columns([1, 2])
+        
+        # Filter out 0 pieces for meaningful typology analysis
+        seg_df = filtered_df[filtered_df['nombre_pieces_principales'] > 0].copy()
+        
+        if not seg_df.empty:
+            # Simplify pieces: 1, 2, 3, 4, 5+
+            seg_df['typologie'] = seg_df['nombre_pieces_principales'].apply(lambda x: f"{int(x)} P" if x < 5 else "5+ P")
+            seg_order = ["1 P", "2 P", "3 P", "4 P", "5+ P"]
+            
+            with col_seg1:
+                st.markdown("#### Répartition des Ventes")
+                type_counts = seg_df['typologie'].value_counts().reindex(seg_order).fillna(0)
+                fig_pie = px.pie(
+                    names=type_counts.index, 
+                    values=type_counts.values,
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=300)
+                st.plotly_chart(fig_pie, width="stretch")
+            
+            with col_seg2:
+                st.markdown("#### Prix au m² Moyen par Typologie")
+                avg_prix_m2 = seg_df.groupby('typologie')['prix_m2'].mean().reindex(seg_order)
+                fig_bar = px.bar(
+                    x=avg_prix_m2.index, 
+                    y=avg_prix_m2.values,
+                    labels={'x': 'Typologie', 'y': 'Prix au m² (€/m²)'},
+                    color=avg_prix_m2.index,
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                # Add labels on bars
+                fig_bar.update_traces(texttemplate='%{y:,.0f} €', textposition='outside')
+                fig_bar.update_layout(height=400, showlegend=False, margin=dict(t=20, b=20))
+                st.plotly_chart(fig_bar, width="stretch")
+                
+            st.markdown("---")
+            st.markdown("#### 📈 Distribution Avancée")
+            # Scatter plot of Price vs Rooms with Price m2 encoded in size or color
+            fig_rooms = px.box(
+                seg_df, 
+                x='typologie', 
+                y=metric_col, 
+                color='type_local',
+                category_orders={"typologie": seg_order},
+                labels={'typologie': 'Nombre de pièces', metric_col: metric_label},
+                color_discrete_sequence=px.colors.qualitative.Pastel,
+                title=f"Distribution du {metric_label} par typologie"
+            )
+            fig_rooms.update_layout(height=450)
+            st.plotly_chart(fig_rooms, width="stretch")
+        else:
+            st.info("Aucune donnée avec un nombre de pièces renseigné pour cette sélection.")
     else:
-        display_df = filtered_df
-        st.warning(f"⚠️ Affichage de la totalité des {len(filtered_df):,} lignes. Cela peut impacter les performances de votre navigateur.")
+        st.info("Aucune donnée disponible pour l'analyse expert.")
 
-# formatting the float columns to look better in the table
-st.dataframe(
-    display_df,
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "valeur_fonciere": st.column_config.NumberColumn(
-            "Prix (€)",
-            help="Prix du Bien",
-            format="%d €",
-        ),
-        "surface_reelle_bati": st.column_config.NumberColumn(
-            "Surface Habitable (m²)",
-            format="%d m²",
-        ),
-        "surface_terrain": st.column_config.NumberColumn(
-            "Surface Terrain (m²)",
-            format="%d m²",
-        ),
-        "code_departement": "Code Dépt",
-        "nom_commune": "Ville",
-        "type_local": "Type de Bien"
-    }
-)
+with tab_data:
+    # -----------------------------------------------------------------------------
+    # Raw Data Exploration
+    # -----------------------------------------------------------------------------
+    st.markdown("### 📋 Exploration des Données Brutes")
+    st.markdown("Visualisez et filtrez les données sélectionnées. Cliquez sur les en-têtes de colonnes pour les trier.")
+    
+    # Control display size
+    col_table1, col_table2 = st.columns([1, 2])
+    
+    with col_table1:
+        display_mode = st.radio(
+            "Mode d'affichage du tableau",
+            ["Top N", "Toutes les données"],
+            index=0,
+            help="L'affichage de toutes les données peut être lent."
+        )
+    
+    with col_table2:
+        if display_mode == "Top N":
+            n_rows = st.slider("Nombre de lignes à afficher", min_value=100, max_value=10000, value=2000, step=100)
+            display_df = filtered_df.head(n_rows)
+            st.info(f"Affichage des {len(display_df):,} premières lignes sur {len(filtered_df):,} disponibles.")
+        else:
+            display_df = filtered_df
+            st.warning(f"⚠️ Affichage de la totalité des {len(filtered_df):,} lignes. Cela peut impacter les performances de votre navigateur.")
+    
+    # formatting the float columns to look better in the table
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "valeur_fonciere": st.column_config.NumberColumn(
+                "Prix (€)",
+                help="Prix du Bien",
+                format="%d €",
+            ),
+            "prix_m2": st.column_config.NumberColumn(
+                "Prix/m² (€/m²)",
+                format="%d €/m²",
+            ),
+            "surface_reelle_bati": st.column_config.NumberColumn(
+                "Surface Habitable (m²)",
+                format="%d m²",
+            ),
+            "surface_terrain": st.column_config.NumberColumn(
+                "Surface Terrain (m²)",
+                format="%d m²",
+            ),
+            "code_departement": "Code Dépt",
+            "nom_commune": "Ville",
+            "type_local": "Type de Bien",
+            "nombre_pieces_principales": "Pièces"
+        }
+    )
+
