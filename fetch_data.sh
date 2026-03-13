@@ -9,14 +9,14 @@ cd data || exit
 echo "Démarrage du téléchargement des données DVF..."
 
 for year in 2023 2024 2025; do
-  if [ ! -f "${year}_full.csv" ]; then
+  if [ ! -s "${year}_full.csv" ]; then
     echo "[${year}] Téléchargement..."
     curl -L -o "${year}_full.csv.gz" "https://files.data.gouv.fr/geo-dvf/latest/csv/${year}/full.csv.gz"
     echo "[${year}] Extraction..."
     gunzip -f "${year}_full.csv.gz"
     echo "[${year}] Terminé."
   else
-    echo "[${year}] Fichier ${year}_full.csv déjà présent."
+    echo "[${year}] Fichier ${year}_full.csv déjà présent et non vide."
   fi
 done
 

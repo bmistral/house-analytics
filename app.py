@@ -72,7 +72,12 @@ def load_and_clean_data(year, nrows=None):
     ]
     
     # Read the CSV file
-    df = pd.read_csv(data_path, usecols=cols_to_use, nrows=nrows)
+    df = pd.read_csv(
+        data_path, 
+        usecols=cols_to_use, 
+        nrows=nrows,
+        dtype={'code_departement': str}
+    )
     
     # Data Cleaning
     # Drop rows where 'valeur_fonciere' (Price) is NaN
@@ -257,7 +262,7 @@ if not map_df.empty:
     fig_map.update_layout(mapbox_style="carto-positron")
     fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     
-    st.plotly_chart(fig_map, use_container_width=True)
+    st.plotly_chart(fig_map, width="stretch")
 else:
     st.info("Aucune donnée géolocalisée à afficher.")
 
@@ -312,7 +317,7 @@ with col_plot2:
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)'
     )
-    st.plotly_chart(fig_corr, use_container_width=True)
+    st.plotly_chart(fig_corr, width="stretch")
 
 with col_plot1:
     st.markdown("#### Prix vs Surface Habitable")
@@ -339,7 +344,7 @@ with col_plot1:
             plot_bgcolor='rgba(0,0,0,0)',
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        st.plotly_chart(fig_scatter1, use_container_width=True)
+        st.plotly_chart(fig_scatter1, width="stretch")
     else:
         st.info("Pas assez de données avec une surface habitable > 0 après filtrage.")
 
@@ -369,7 +374,7 @@ if len(viz_land) > 0:
          plot_bgcolor='rgba(0,0,0,0)',
          height=500
     )
-    st.plotly_chart(fig_scatter2, use_container_width=True)
+    st.plotly_chart(fig_scatter2, width="stretch")
 else:
     st.info("Pas assez de données avec une surface de terrain > 0 après filtrage.")
 
