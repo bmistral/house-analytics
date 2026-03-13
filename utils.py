@@ -129,3 +129,22 @@ def calculate_similarity_score(bench_df, target_surface, target_pieces, is_terra
             np.abs(df['nombre_pieces_principales'] - target_pieces) / pieces_std
         )
     return df
+
+def get_monthly_stats(df, is_terrain=False):
+    """Calculate median price per m2 and count of transactions per month."""
+    if df.empty:
+        return pd.DataFrame()
+        
+    temp_df = df.copy()
+    temp_df['month'] = temp_df['date_mutation'].dt.to_period('M').astype(str)
+    
+    price_col = 'prix_m2' if not is_terrain else 'prix_m2_terrain'
+    if is_terrain and 'prix_m2_terrain' not in temp_df.columns:
+        temp_df['prix_m2_terrain'] = temp_df['valeur_fonciere'] / temp_df['surface_terrain'].replace(0, np.nan)
+
+    stats = temp_df.groupby('month').agg(
+        median_price=(price_col, 'median'),
+        volume=('valeur_fonciere', 'count')
+    ).reset_index()
+    
+    return stats.sort_values('month')

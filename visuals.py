@@ -85,7 +85,46 @@ def create_scatter_plot(df, x_col, y_col, color_col, x_label, y_label):
 def create_pie_chart(labels, values):
     """Creates a simple pie chart."""
     fig = px.pie(names=labels, values=values, color_discrete_sequence=px.colors.qualitative.Pastel)
-    fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=300)
+    fig.update_layout(showlegend=True, margin=dict(b=0, t=30, l=0, r=0), height=400)
+    return fig
+
+def create_time_series_chart(stats_df, title="Évolution du Marché"):
+    """Create a dual-axis chart for Monthly Price Trends and Volumes."""
+    if stats_df.empty:
+        return go.Figure()
+        
+    fig = go.Figure()
+
+    # Add Volume Bars (Secondary Axis)
+    fig.add_trace(go.Bar(
+        x=stats_df['month'],
+        y=stats_df['volume'],
+        name="Volume de Ventes",
+        marker_color='rgba(158, 202, 225, 0.6)',
+        yaxis='y2'
+    ))
+
+    # Add Price Line (Primary Axis)
+    fig.add_trace(go.Scatter(
+        x=stats_df['month'],
+        y=stats_df['median_price'],
+        name="Prix Médian (€/m²)",
+        mode='lines+markers',
+        line=dict(color='rgb(31, 119, 180)', width=4),
+        marker=dict(size=8)
+    ))
+
+    fig.update_layout(
+        title=title,
+        xaxis=dict(title="Mois"),
+        yaxis=dict(title="Prix Médian (€/m²)", side="left", showgrid=True),
+        yaxis2=dict(title="Volume de Ventes", side="right", overlaying="y", showgrid=False),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        template="plotly_white",
+        height=500,
+        margin=dict(r=50, l=50, t=80, b=50)
+    )
+    
     return fig
 
 def create_bar_chart(x, y, x_label, y_label, colors):

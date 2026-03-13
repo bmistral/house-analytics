@@ -116,7 +116,7 @@ filtered_df = global_filtered_df
 st.title("Analyse des Données Immobilières en France")
 st.markdown("Explorez les tendances immobilières à travers la France.")
 
-tab_overview, tab_expert, tab_estimer, tab_data = st.tabs(["🏠 Vue d'ensemble", "💎 Analyse Expert", "📍 Estimer & Comparer", "📋 Données Brutes"])
+tab_overview, tab_expert, tab_estimer, tab_trends, tab_data = st.tabs(["🏠 Vue d'ensemble", "💎 Analyse Expert", "📍 Estimer & Comparer", "📈 Tendances", "📋 Données Brutes"])
 
 with tab_overview:
     st.markdown("### 📊 Indicateurs Clés")
@@ -242,6 +242,39 @@ with tab_estimer:
         show_cols = ['nom_commune', 'valeur_fonciere', 'surface_terrain']
         if not is_t: show_cols += ['surface_reelle_bati', 'nombre_pieces_principales']
         st.table(top_n[show_cols].rename(columns={'nom_commune': 'Ville', 'valeur_fonciere': 'Prix', 'surface_terrain': 'Terrain', 'surface_reelle_bati': 'Surface', 'nombre_pieces_principales': 'Pièces'}))
+
+with tab_trends:
+    st.markdown("### 📈 Tendances du Marché")
+    st.markdown("Analyse de la dynamique des prix et des volumes sur l'année.")
+    
+    # Toggle for property type in trends
+    trend_type = st.radio("Type de bien pour l'analyse", ["Bâti (Maisons/Appts)", "Terrain nu"], horizontal=True)
+    is_t_trend = (trend_type == "Terrain nu")
+    
+    # Filter data for trends
+    trend_df = filtered_df if not is_t_trend else raw_df[raw_df['type_local'] == 'Terrain nu']
+    if selected_departments:
+        trend_df = trend_df[trend_df['code_departement'].astype(str).isin(selected_departments)]
+    if selected_city != "-- Aucune --" and city_center:
+        trend_df = utils.filter_data_by_radius(trend_df, city_center, radius_km)
+
+    monthly_stats = utils.get_monthly_stats(trend_df, is_t_trend)
+    
+    if not monthly_stats.empty:
+        # Metrics
+        t_col1, t_col2, t_col3 = st.columns(3)
+        current_price = monthly_stats['median_price'].iloc[-1]
+        prev_price = monthly_stats['median_price'].iloc[0]
+        price_delta = ((current_price - prev_price) / prev_price * 100) if prev_price > 0 else 0
+        
+        t_col1.metric("Prix Médian Fin d'Année", f"{current_price:,.0f} €/m²", f"{price_delta:+.1f}% (vs Jan)")
+        t_col2.metric("Volume Total", f"{monthly_stats['volume'].sum():,}")
+        t_col3.metric("Mois le plus actif", monthly_stats.loc[monthly_stats['volume'].idxmax(), 'month'])
+
+        # Chart
+        st.plotly_chart(visuals.create_time_series_chart(monthly_stats, f"Évolution Mensuelle : {trend_type}"), use_container_width=True)
+    else:
+        st.info("Données insuffisantes pour générer les tendances temporelles.")
 
 with tab_data:
     st.markdown("### 📋 Données Brutes")
