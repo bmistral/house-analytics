@@ -559,61 +559,95 @@ with tab_estimer:
         st.markdown("#### 🧮 Simulateur d'Estimation")
         with st.container(border=True):
             input_type = st.selectbox("Type de bien à estimer", options=selected_types if selected_types else property_types)
-            input_surface = st.number_input("Surface habitable (m²)", min_value=9, max_value=1000, value=100)
-            input_pieces = st.number_input("Nombre de pièces", min_value=1, max_value=20, value=4)
-            input_terrain = st.number_input("Surface terrain (m²)", min_value=0, max_value=100000, value=0)
+            
+            # Conditional inputs based on type
+            is_terrain = "Terrain" in input_type
+            
+            if not is_terrain:
+                input_surface = st.number_input("Surface habitable (m²)", min_value=9, max_value=1000, value=100)
+                input_pieces = st.number_input("Nombre de pièces", min_value=1, max_value=20, value=4)
+            else:
+                input_surface = 0
+                input_pieces = 0
+                
+            input_terrain = st.number_input("Surface terrain (m²)", min_value=0, max_value=100000, value=500 if is_terrain else 0)
             
             # Prediction logic based on local data
             local_est_df = filtered_df[filtered_df['type_local'] == input_type]
+            
+            # Methodology explanation
+            st.info("""
+            **Méthodologie du calcul :**
+            L'estimation est calculée en croisant vos critères avec les transactions réelles du secteur (filtres actifs). 
+            Le prix médian au m² est appliqué à votre surface pour définir la valeur centrale, tandis que les 25ème et 75ème percentiles définissent la fourchette basse et haute du marché.
+            """)
+            
             if not local_est_df.empty:
-                # Calculate local indicators
-                median_m2 = local_est_df['prix_m2'].median()
-                q1_m2 = local_est_df['prix_m2'].quantile(0.25)
-                q3_m2 = local_est_df['prix_m2'].quantile(0.75)
+                # For terrains, we must calculate price per m2 relative to the land area
+                if is_terrain:
+                    local_est_df = local_est_df.copy()
+                    local_est_df['prix_m2_calc'] = local_est_df['valeur_fonciere'] / local_est_df['surface_terrain'].replace(0, np.nan)
+                    surface_to_use = input_terrain
+                    metric_suffix = "m² de terrain"
+                else:
+                    local_est_df = local_est_df.copy()
+                    local_est_df['prix_m2_calc'] = local_est_df['prix_m2']
+                    surface_to_use = input_surface
+                    metric_suffix = "m² habitable"
                 
-                est_median = input_surface * median_m2
-                est_low = input_surface * q1_m2
-                est_high = input_surface * q3_m2
+                median_m2 = local_est_df['prix_m2_calc'].median()
+                q1_m2 = local_est_df['prix_m2_calc'].quantile(0.25)
+                q3_m2 = local_est_df['prix_m2_calc'].quantile(0.75)
                 
-                st.markdown(f"**Estimation pour {input_surface}m² à {selected_city if selected_city != '-- Aucune --' else 'ce secteur'} :**")
+                est_median = surface_to_use * median_m2
+                est_low = surface_to_use * q1_m2
+                est_high = surface_to_use * q3_m2
+                
+                st.markdown(f"**Estimation pour {surface_to_use} {metric_suffix} à {selected_city if selected_city != '-- Aucune --' else 'ce secteur'} :**")
                 st.subheader(f"{est_median:,.0f} €")
                 st.caption(f"Fourchette de marché (25ème - 75ème percentile) : **{est_low:,.0f} € - {est_high:,.0f} €**")
                 st.caption(f"Basé sur le prix au m² médian de {median_m2:,.0f} €/m² pour des {input_type}s.")
-            st.markdown("#### 🏗️ Analyse Foncière (Terrain seul)")
-            land_data = filtered_df[filtered_df['type_local'].str.contains('Terrain', case=False, na=False)]
-            if not land_data.empty:
-                median_land_m2 = land_data['prix_m2'].median() if 'prix_m2' in land_data.columns else 0
-                # If prix_m2 for land is NaN (because surface_reelle_bati is 0), we need to calculate it vs surface_terrain
-                land_data['prix_m2_terrain'] = land_data['valeur_fonciere'] / land_data['surface_terrain'].replace(0, np.nan)
-                median_land_m2_real = land_data['prix_m2_terrain'].median()
-                
-                est_land_value = input_terrain * median_land_m2_real
-                st.write(f"Prix médian du terrain nu dans le secteur : **{median_land_m2_real:,.0f} €/m²**")
-                if input_terrain > 0:
-                    st.write(f"Valeur estimée de votre terrain seul : **{est_land_value:,.0f} €**")
-                    if est_land_value > est_median:
-                        st.success("💡 La valeur de votre terrain nu semble supérieure à la valeur estimée de votre bien bâti. Une division parcellaire pourrait être intéressante.")
             else:
-                st.info("Pas assez de données de ventes de terrains nus dans ce secteur pour une comparaison fiable.")
+                st.warning("Données locales insuffisantes pour ce type de bien.")
+            
+            # Show land analysis only if not estimating a terrain alone
+            if not is_terrain:
+                st.markdown("---")
+                st.markdown("#### 🏗️ Analyse Foncière (Terrain seul)")
+                land_data = filtered_df[filtered_df['type_local'].str.contains('Terrain', case=False, na=False)]
+                if not land_data.empty:
+                    land_data = land_data.copy()
+                    land_data['prix_m2_terrain'] = land_data['valeur_fonciere'] / land_data['surface_terrain'].replace(0, np.nan)
+                    median_land_m2_real = land_data['prix_m2_terrain'].median()
+                    
+                    est_land_value = input_terrain * median_land_m2_real
+                    st.write(f"Prix médian du terrain nu dans le secteur : **{median_land_m2_real:,.0f} €/m²**")
+                    if input_terrain > 0:
+                        st.write(f"Valeur estimée de votre terrain seul : **{est_land_value:,.0f} €**")
+                        if est_land_value > est_median:
+                            st.success("💡 La valeur de votre terrain nu semble supérieure à la valeur estimée de votre bien bâti. Une division parcellaire pourrait être intéressante.")
+                else:
+                    st.info("Pas assez de données de ventes de terrains nus dans ce secteur pour une comparaison fiable.")
 
     with col_est2:
         st.markdown("#### 📉 Positionnement Marché")
-        if not filtered_df.empty:
-            # Distribution of Price/m2
+        if not local_est_df.empty:
+            # Use the calculated price per m2 for the distribution
             fig_dist = px.histogram(
-                filtered_df, 
-                x='prix_m2', 
+                local_est_df, 
+                x='prix_m2_calc', 
                 nbins=50,
-                labels={'prix_m2': 'Prix au m² (€/m²)', 'count': 'Nombre de ventes'},
+                labels={'prix_m2_calc': f'Prix au {metric_suffix} (€/m²)', 'count': 'Nombre de ventes'},
                 color_discrete_sequence=['#636EFA'],
-                title="Distribution des prix au m² dans le secteur"
+                title=f"Distribution des prix au {metric_suffix} ({input_type})"
             )
-            # Add a vertical line for the estimation if it exists
-            if not local_est_df.empty:
-                fig_dist.add_vline(x=median_m2, line_dash="dash", line_color="red", annotation_text="Prix Médian Estimé")
+            # Add a vertical line for the estimation
+            fig_dist.add_vline(x=median_m2, line_dash="dash", line_color="red", annotation_text="Prix Médian Estimé")
                 
             fig_dist.update_layout(height=400, margin=dict(t=50, b=20, l=20, r=20))
             st.plotly_chart(fig_dist, width="stretch")
+        else:
+            st.info("Données insuffisantes pour afficher la distribution.")
             
     st.markdown("---")
     st.markdown("#### 🏘️ Les 10 Voisins les plus Similaires (Benchmarking)")
@@ -623,31 +657,39 @@ with tab_estimer:
         # Calculate a simple "similarity score" (Lower is better)
         # Normalized difference on surface and pieces
         bench_df = local_est_df.copy()
-        surf_std = max(bench_df['surface_reelle_bati'].std(), 1)
-        pieces_std = max(bench_df['nombre_pieces_principales'].std(), 1)
         
-        bench_df['diff_score'] = (
-            np.abs(bench_df['surface_reelle_bati'] - input_surface) / surf_std +
-            np.abs(bench_df['nombre_pieces_principales'] - input_pieces) / pieces_std
-        )
+        if is_terrain:
+            surf_std = max(bench_df['surface_terrain'].std(), 1)
+            bench_df['diff_score'] = np.abs(bench_df['surface_terrain'] - input_terrain) / surf_std
+        else:
+            surf_std = max(bench_df['surface_reelle_bati'].std(), 1)
+            pieces_std = max(bench_df['nombre_pieces_principales'].std(), 1)
+            bench_df['diff_score'] = (
+                np.abs(bench_df['surface_reelle_bati'] - input_surface) / surf_std +
+                np.abs(bench_df['nombre_pieces_principales'] - input_pieces) / pieces_std
+            )
         
         top_neighbors = bench_df.sort_values('diff_score').head(10)
         
-        st.table(top_neighbors[[
-            'nom_commune', 'valeur_fonciere', 'surface_reelle_bati', 
-            'nombre_pieces_principales', 'surface_terrain', 'prix_m2'
-        ]].rename(columns={
+        # Display relevant columns
+        cols_to_show = ['nom_commune', 'valeur_fonciere']
+        if not is_terrain:
+            cols_to_show += ['surface_reelle_bati', 'nombre_pieces_principales']
+        cols_to_show += ['surface_terrain', 'prix_m2_calc']
+        
+        st.table(top_neighbors[cols_to_show].rename(columns={
             'nom_commune': 'Ville',
             'valeur_fonciere': 'Prix de vente (€)',
             'surface_reelle_bati': 'Surface (m²)',
             'nombre_pieces_principales': 'Pièces',
             'surface_terrain': 'Terrain (m²)',
-            'prix_m2': 'Prix au m² (€/m²)'
+            'prix_m2_calc': f'Prix au {metric_suffix} (€/m²)'
         }).style.format({
             'Prix de vente (€)': '{:,.0f} €',
             'Surface (m²)': '{:,.0f} m²',
+            'Pièces': '{:.0f}',
             'Terrain (m²)': '{:,.0f} m²',
-            'Prix au m² (€/m²)': '{:,.0f} €/m²'
+            f'Prix au {metric_suffix} (€/m²)': '{:,.0f} €/m²'
         }))
     else:
         st.info("Sélectionnez des critères pour voir les voisins similaires.")

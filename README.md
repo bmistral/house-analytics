@@ -10,16 +10,25 @@ Ce projet permet d'explorer les corrélations entre les prix des biens immobilie
 
 ## ✨ Fonctionnalités
 
-*   ** Exploration des Données :** Visualisez les transactions immobilières à travers la France (prix, surfaces).
-*   ** Filtrage Géographique Avancé :** 
-    *   Filtrez par Département et par Ville.
-    *   **Recherche par Rayon :** Sélectionnez une ville cible et visualisez toutes les transactions dans un rayon défini (en kilomètres) grâce au calcul de distance de Haversine.
-*   ** Filtrage par Type de Bien :** Maisons, Appartements, Terrains, etc.
-*   ** Visualisations Interactives :**
-    *   **Carte Géolocalisée** (`plotly.express.scatter_mapbox`) : Visualisez la répartition spatiale et les prix des biens sur une carte.
-    *   **Matrice de Corrélation** : Observez les liens statistiques entre le prix, la surface habitable et la surface du terrain.
-    *   **Nuages de Points (Scatter Plots)** : Analysez la relation directe entre le prix et les différentes surfaces.
-*   ** Tableau de Données Brutes :** Consultez, triez et filtrez les données tabulaires directement dans l'interface, similaire à Excel.
+Le dashboard est organisé en quatre sections majeures pour répondre aux besoins des analystes et des particuliers :
+
+1.  **🏠 Vue d'ensemble** : 
+    *   **KPIs Dynamiques** : Nombre de transactions, prix moyen, surfaces moyennes.
+    *   **Carte Interactive** : Visualisation géospatiale avec échelle de couleur adaptative (clipping des outliers au 95ème percentile).
+    *   **Cercle de Recherche** : Visualisation précise du rayon de recherche autour de la ville de référence.
+    *   **Analyse de Corrélation** : Matrice interactive et nuages de points (Prix vs Surface).
+2.  **💎 Analyse Expert** :
+    *   **Métrique Prix/m²** : Basculez l'ensemble du dashboard entre le prix total et le prix au m².
+    *   **Segmentation par Typologie** : Analyse détaillée par nombre de pièces (T1, T2, T3, T4, T5+).
+    *   **Pureté des données** : Filtrage automatique sur les transactions de type "Vente" uniquement.
+3.  **📍 Estimer & Comparer** :
+    *   **Simulateur d'Estimation** : Obtenez une fourchette de prix (Bas/Médian/Haut) basée sur les données locales réelles.
+    *   **Analyse Foncière** : Détermination de la valeur du terrain nu et suggestions de division parcellaire si la valeur foncière dépasse la valeur bâtie.
+    *   **Benchmarking "Voisins"** : Tableau des 10 transactions les plus similaires basées sur un score de proximité (Surface, Pièces).
+    *   **Positionnement Marché** : Histogramme de distribution des prix pour situer votre bien.
+4.  **📋 Données Brutes** :
+    *   Exploration tabulaire complète avec tri et filtrage.
+    *   Mode d'affichage configurable (Top N ou Dataset complet).
 
 ## 📊 Source des Données (DVF)
 
