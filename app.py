@@ -78,23 +78,31 @@ metric_label = "Prix (€)" if analysis_metric == "Prix Total (€)" else "Prix 
 # Apply Filters
 # -----------------------------------------------------------------------------
 filtered_df = raw_df.copy()
+
+# By default, we focus on sales for the main dashboard (Overview, Expert, Estimate)
+# But we'll allow full exploration in the Raw Data tab
+global_filtered_df = filtered_df[filtered_df['nature_mutation'].fillna('').str.upper() == 'VENTE']
+
 if selected_types:
-    filtered_df = filtered_df[filtered_df['type_local'].isin(selected_types)]
+    global_filtered_df = global_filtered_df[global_filtered_df['type_local'].isin(selected_types)]
 
 city_center = None
 if selected_city != "-- Aucune --":
     city_center = utils.get_city_center(raw_df, selected_city)
     if city_center:
-        filtered_df = utils.filter_data_by_radius(filtered_df, city_center, radius_km)
+        global_filtered_df = utils.filter_data_by_radius(global_filtered_df, city_center, radius_km)
     else:
         st.sidebar.warning("Coordonnées GPS introuvables pour cette ville.")
 elif selected_departments:
-    filtered_df = filtered_df[filtered_df['code_departement'].astype(str).isin(selected_departments)]
+    global_filtered_df = global_filtered_df[global_filtered_df['code_departement'].astype(str).isin(selected_departments)]
+
+# Alias for compatibility with existing code in tabs
+filtered_df = global_filtered_df
 
 # -----------------------------------------------------------------------------
 # Main Dashboard Layout
 # -----------------------------------------------------------------------------
-st.title("🇫🇷 Analyse des Données Immobilières en France")
+st.title("Analyse des Données Immobilières en France")
 st.markdown("Explorez les tendances immobilières à travers la France.")
 
 tab_overview, tab_expert, tab_estimer, tab_data = st.tabs(["🏠 Vue d'ensemble", "💎 Analyse Expert", "📍 Estimer & Comparer", "📋 Données Brutes"])
@@ -227,7 +235,77 @@ with tab_estimer:
 
 with tab_data:
     st.markdown("### 📋 Données Brutes")
-    mode = st.radio("Affichage", ["Top N", "Toutes"], horizontal=True)
-    n_show = st.slider("Lignes", 100, 10000, 2000) if mode == "Top N" else len(filtered_df)
-    st.dataframe(filtered_df.head(n_show), width='stretch', hide_index=True)
+    
+    # Base for raw data before tab-specific filters
+    # We apply same geo/dept filters as sidebar to maintain context
+    raw_base_df = raw_df.copy()
+    if selected_city != "-- Aucune --" and city_center:
+        raw_base_df = utils.filter_data_by_radius(raw_base_df, city_center, radius_km)
+    elif selected_departments:
+        raw_base_df = raw_base_df[raw_base_df['code_departement'].astype(str).isin(selected_departments)]
+
+    # Advanced Filters for Raw Data
+    with st.expander("🔍 Filtres Avancés (Données Brutes uniquement)", expanded=True):
+        fcol1, fcol2, fcol3 = st.columns(3)
+        
+        with fcol1:
+            # Date Filter
+            min_date = raw_base_df['date_mutation'].min()
+            max_date = raw_base_df['date_mutation'].max()
+            if pd.notna(min_date) and pd.notna(max_date):
+                date_range = st.date_input(
+                    "Période",
+                    value=(min_date.date(), max_date.date()),
+                    min_value=min_date.date(),
+                    max_value=max_date.date()
+                )
+            else:
+                st.info("Dates indisponibles")
+                date_range = None
+
+        with fcol2:
+            # Nature Filter
+            natures = sorted(raw_base_df['nature_mutation'].fillna('Inconnu').unique().tolist())
+            selected_natures = st.multiselect("Nature de la mutation", options=natures, default=natures)
+
+        with fcol3:
+            # Local Type Filter (more granular than sidebar)
+            types = sorted(raw_base_df['type_local'].unique().tolist())
+            selected_raw_types = st.multiselect("Type de bien (Détaillé)", options=types, default=types)
+
+    # Apply Tab-Specific Filters
+    tab_df = raw_base_df.copy()
+    if date_range and len(date_range) == 2:
+        tab_df = tab_df[(tab_df['date_mutation'].dt.date >= date_range[0]) & (tab_df['date_mutation'].dt.date <= date_range[1])]
+    if selected_natures:
+        tab_df = tab_df[tab_df['nature_mutation'].fillna('Inconnu').isin(selected_natures)]
+    if selected_raw_types:
+        tab_df = tab_df[tab_df['type_local'].isin(selected_raw_types)]
+
+    # Display Controls
+    mode = st.radio("Affichage", ["Top N", "Toutes"], horizontal=True, key="raw_display_mode")
+    if mode == "Top N":
+        max_rows = len(tab_df)
+        n_show = st.number_input(
+            "Nombre de lignes à afficher", 
+            min_value=1, 
+            max_value=max(1, max_rows), 
+            value=min(2000, max_rows) if max_rows > 0 else 1,
+            step=100,
+            key="raw_n_rows"
+        )
+        st.info(f"Affichage des {n_show:,} premières lignes sur {max_rows:,} disponibles après filtres.")
+    else:
+        n_show = len(tab_df)
+        if n_show > 10000:
+            st.warning(f"⚠️ Affichage de la totalité des {n_show:,} lignes. Cela peut impacter les performances de votre navigateur.")
+        else:
+            st.success(f"Affichage de la totalité des {n_show:,} lignes.")
+
+    # Format Date column for display
+    display_df = tab_df.head(n_show).copy()
+    if 'date_mutation' in display_df.columns:
+        display_df['date_mutation'] = display_df['date_mutation'].dt.strftime('%d/%m/%Y')
+
+    st.dataframe(display_df, width='stretch', hide_index=True)
 

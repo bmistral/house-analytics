@@ -52,8 +52,8 @@ def load_and_clean_data(year, nrows=None):
     df.loc[mask_terrain, 'type_local'] = 'Terrain nu'
     df['type_local'] = df['type_local'].fillna('Autre/Dépendance')
     
-    # Filter for 'Vente' only
-    df = df[df['nature_mutation'].fillna('').str.upper() == 'VENTE']
+    # Convert Date
+    df['date_mutation'] = pd.to_datetime(df['date_mutation'], errors='coerce')
     
     # Calculate Price per m²
     df['prix_m2'] = np.where(df['surface_reelle_bati'] > 0, df['valeur_fonciere'] / df['surface_reelle_bati'], np.nan)
