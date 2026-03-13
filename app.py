@@ -292,6 +292,11 @@ if not map_df.empty:
             "line": {"width": 2}
         }]
 
+    # Calculate price percentile for better color distribution on the map
+    # We use the 95th percentile as the max for the color scale to avoid outliers squashing the range
+    max_price_map = map_draw_df['valeur_fonciere'].quantile(0.95) if not map_draw_df.empty else 1000000
+    if max_price_map == 0: max_price_map = 1000000
+
     fig_map = px.scatter_mapbox(
         map_draw_df, 
         lat="latitude", 
@@ -307,7 +312,8 @@ if not map_df.empty:
             "surface_terrain": True,
             "type_local": True
         },
-        color_continuous_scale=px.colors.sequential.Viridis,
+        color_continuous_scale="Plasma", # More vibrant scale
+        range_color=[0, max_price_map], # Clip color scale to handle outliers
         zoom=zoom_level,
         center=center_coord,
         height=600,
