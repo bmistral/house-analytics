@@ -153,6 +153,7 @@ with tab_overview:
     ]
 
     # Living Area Plot
+    st.markdown("#### Prix vs Surface Habitable")
     viz_living = vis_df[vis_df['surface_reelle_bati'] > 0]
     if not viz_living.empty:
         st.plotly_chart(visuals.create_scatter_plot(viz_living, 'surface_reelle_bati', 'valeur_fonciere', 'type_local', 'Surf. Habitable (m²)', 'Prix (€)'), use_container_width=True)
