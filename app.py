@@ -255,9 +255,10 @@ with tab_data:
             if pd.notna(min_date) and pd.notna(max_date):
                 date_range = st.date_input(
                     "Période",
-                    value=(min_date.date(), max_date.date()),
+                    value=None, # Empty by default
                     min_value=min_date.date(),
-                    max_value=max_date.date()
+                    max_value=max_date.date(),
+                    placeholder="Sélectionner une plage..."
                 )
             else:
                 st.info("Dates indisponibles")
@@ -266,12 +267,12 @@ with tab_data:
         with fcol2:
             # Nature Filter
             natures = sorted(raw_base_df['nature_mutation'].fillna('Inconnu').unique().tolist())
-            selected_natures = st.multiselect("Nature de la mutation", options=natures, default=natures)
+            selected_natures = st.multiselect("Nature de la mutation", options=natures, default=[])
 
         with fcol3:
             # Local Type Filter (more granular than sidebar)
             types = sorted(raw_base_df['type_local'].unique().tolist())
-            selected_raw_types = st.multiselect("Type de bien (Détaillé)", options=types, default=types)
+            selected_raw_types = st.multiselect("Type de bien (Détaillé)", options=types, default=[])
 
     # Apply Tab-Specific Filters
     tab_df = raw_base_df.copy()
