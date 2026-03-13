@@ -141,9 +141,15 @@ selected_departments = st.sidebar.multiselect(
 filtered_by_dept = raw_df[raw_df['code_departement'].astype(str).isin(selected_departments)] if selected_departments else raw_df
 cities = sorted(filtered_by_dept['nom_commune'].dropna().unique().tolist())
 
+# Find index of Toulouse for default selection
+default_city_index = 0
+if "TOULOUSE" in cities:
+    default_city_index = cities.index("TOULOUSE") + 1
+
 selected_city = st.sidebar.selectbox(
     "2. Ville de référence", 
     options=["-- Aucune --"] + cities,
+    index=default_city_index,
     help="Choisissez une ville autour de laquelle chercher."
 )
 
@@ -154,10 +160,12 @@ st.sidebar.subheader("🏠 Type de bien")
 
 # Filter: Property Type
 property_types = sorted(raw_df['type_local'].dropna().unique().tolist())
+default_types = [t for t in property_types if t in ["Maison", "Appartement"]]
+
 selected_types = st.sidebar.multiselect(
     "Type de bien", 
     options=property_types,
-    default=property_types,
+    default=default_types if default_types else property_types,
     help="Filtrer par type de propriété."
 )
 
@@ -385,15 +393,25 @@ st.markdown("---")
 st.markdown("### 📋 Exploration des Données Brutes")
 st.markdown("Visualisez et filtrez les données sélectionnées. Cliquez sur les en-têtes de colonnes pour les trier.")
 
-# We only display a limited number of rows if the dataset is still very large, 
-# otherwise rendering a massive table can freeze the browser.
-MAX_ROWS_TABLE = 10000
+# Control display size
+col_table1, col_table2 = st.columns([1, 2])
 
-if len(filtered_df) > MAX_ROWS_TABLE:
-    st.warning(f"Le jeu de données est trop volumineux pour être affiché entièrement. Un échantillon aléatoire de {MAX_ROWS_TABLE} lignes est affiché.")
-    display_df = filtered_df.sample(MAX_ROWS_TABLE, random_state=42)
-else:
-    display_df = filtered_df
+with col_table1:
+    display_mode = st.radio(
+        "Mode d'affichage du tableau",
+        ["Top N", "Toutes les données"],
+        index=0,
+        help="L'affichage de toutes les données peut être lent."
+    )
+
+with col_table2:
+    if display_mode == "Top N":
+        n_rows = st.slider("Nombre de lignes à afficher", min_value=100, max_value=10000, value=2000, step=100)
+        display_df = filtered_df.head(n_rows)
+        st.info(f"Affichage des {len(display_df):,} premières lignes sur {len(filtered_df):,} disponibles.")
+    else:
+        display_df = filtered_df
+        st.warning(f"⚠️ Affichage de la totalité des {len(filtered_df):,} lignes. Cela peut impacter les performances de votre navigateur.")
 
 # formatting the float columns to look better in the table
 st.dataframe(
