@@ -68,7 +68,10 @@ def load_and_clean_data(year, nrows=None):
         'surface_reelle_bati', 
         'surface_terrain',
         'latitude',
-        'longitude'
+        'longitude',
+        'nature_mutation',
+        'nombre_pieces_principales',
+        'date_mutation'
     ]
     
     # Read the CSV file
@@ -99,6 +102,17 @@ def load_and_clean_data(year, nrows=None):
     
     # Standardize 'type_local'
     df['type_local'] = df['type_local'].fillna('Terrain/Autre')
+    
+    # --- EXPERT ANALYSIS METRICS ---
+    # Filter for 'Vente' only by default to avoid polluting with exchanges/donations
+    # Note: case might vary, so we normalize
+    df = df[df['nature_mutation'].fillna('').str.upper() == 'VENTE']
+    
+    # Calculate Price per m² (only for properties with living area > 0)
+    df['prix_m2'] = np.where(df['surface_reelle_bati'] > 0, df['valeur_fonciere'] / df['surface_reelle_bati'], np.nan)
+    
+    # Clean room count
+    df['nombre_pieces_principales'] = pd.to_numeric(df['nombre_pieces_principales'], errors='coerce').fillna(0)
     
     return df
 
@@ -171,6 +185,16 @@ selected_types = st.sidebar.multiselect(
     help="Filtrer par type de propriété."
 )
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("💎 Expertise Métiers")
+analysis_metric = st.sidebar.radio(
+    "Métrique principale",
+    ["Prix Total (€)", "Prix au m² (€/m²)"],
+    index=0
+)
+metric_col = 'valeur_fonciere' if analysis_metric == "Prix Total (€)" else 'prix_m2'
+metric_label = "Prix (€)" if analysis_metric == "Prix Total (€)" else "Prix au m² (€/m²)"
+
 # -----------------------------------------------------------------------------
 # Apply Filters
 # -----------------------------------------------------------------------------
@@ -218,7 +242,13 @@ avg_land_area = filtered_df[filtered_df['surface_terrain'] > 0]['surface_terrain
 
 col1.metric("Total des Transactions", f"{total_transactions:,}")
 col2.metric("Prix Moyen", f"{avg_price:,.0f} €" if not np.isnan(avg_price) else "N/A")
-col3.metric("Surface Habitable Moyenne", f"{avg_living_area:,.0f} m²" if not np.isnan(avg_living_area) else "N/A")
+
+if analysis_metric == "Prix au m² (€/m²)":
+    avg_m2 = filtered_df['prix_m2'].mean()
+    col3.metric("Prix m² Moyen", f"{avg_m2:,.0f} €/m²" if not np.isnan(avg_m2) else "N/A")
+else:
+    col3.metric("Surface Habitable Moyenne", f"{avg_living_area:,.0f} m²" if not np.isnan(avg_living_area) else "N/A")
+
 col4.metric("Surface Terrain Moyenne", f"{avg_land_area:,.0f} m²" if not np.isnan(avg_land_area) else "N/A")
 
 st.markdown("---")
@@ -294,30 +324,32 @@ if not map_df.empty:
 
     # Calculate price percentile for better color distribution on the map
     # We use the 95th percentile as the max for the color scale to avoid outliers squashing the range
-    max_price_map = map_draw_df['valeur_fonciere'].quantile(0.95) if not map_draw_df.empty else 1000000
-    if max_price_map == 0: max_price_map = 1000000
+    max_val_map = map_draw_df[metric_col].quantile(0.95) if not map_draw_df.empty else 10000
+    if max_val_map == 0 or np.isnan(max_val_map): max_val_map = 10000
 
     fig_map = px.scatter_mapbox(
         map_draw_df, 
         lat="latitude", 
         lon="longitude", 
-        color="valeur_fonciere",
+        color=metric_col,
         hover_name="nom_commune",
         opacity=0.35, # Points more transparent as requested
         hover_data={
             "latitude": False,
             "longitude": False,
             "valeur_fonciere": ":.0f", 
+            "prix_m2": ":.0f",
             "surface_reelle_bati": True, 
             "surface_terrain": True,
-            "type_local": True
+            "type_local": True,
+            "nombre_pieces_principales": True
         },
         color_continuous_scale="Plasma", # More vibrant scale
-        range_color=[0, max_price_map], # Clip color scale to handle outliers
+        range_color=[0, max_val_map], # Clip color scale to handle outliers
         zoom=zoom_level,
         center=center_coord,
         height=600,
-        labels={"valeur_fonciere": "Prix (€)"}
+        labels={metric_col: metric_label}
     )
     
     # Use open-street-map for a "less transparent" / more vivid background
@@ -442,6 +474,45 @@ if len(viz_land) > 0:
     st.plotly_chart(fig_scatter2, width="stretch")
 else:
     st.info("Pas assez de données avec une surface de terrain > 0 après filtrage.")
+
+# -----------------------------------------------------------------------------
+# Expert Segment Analysis: Room Count
+# -----------------------------------------------------------------------------
+st.markdown("---")
+st.markdown("### 🏘️ Analyse par Typologie (Nombre de pièces)")
+col_seg1, col_seg2 = st.columns([1, 2])
+
+# Filter out 0 pieces for meaningful typology analysis
+seg_df = filtered_df[filtered_df['nombre_pieces_principales'] > 0].copy()
+# Simplify pieces: 1, 2, 3, 4, 5+
+seg_df['typologie'] = seg_df['nombre_pieces_principales'].apply(lambda x: f"{int(x)} P" if x < 5 else "5+ P")
+seg_order = ["1 P", "2 P", "3 P", "4 P", "5+ P"]
+
+with col_seg1:
+    st.markdown("#### Répartition des Ventes")
+    type_counts = seg_df['typologie'].value_counts().reindex(seg_order).fillna(0)
+    fig_pie = px.pie(
+        names=type_counts.index, 
+        values=type_counts.values,
+        color_discrete_sequence=px.colors.qualitative.Pastel
+    )
+    fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=300)
+    st.plotly_chart(fig_pie, width="stretch")
+
+with col_seg2:
+    st.markdown("#### Prix au m² Moyen par Typologie")
+    avg_prix_m2 = seg_df.groupby('typologie')['prix_m2'].mean().reindex(seg_order)
+    fig_bar = px.bar(
+        x=avg_prix_m2.index, 
+        y=avg_prix_m2.values,
+        labels={'x': 'Typologie', 'y': 'Prix au m² (€/m²)'},
+        color=avg_prix_m2.index,
+        color_discrete_sequence=px.colors.qualitative.Pastel
+    )
+    # Add labels on bars
+    fig_bar.update_traces(texttemplate='%{y:,.0f} €', textposition='outside')
+    fig_bar.update_layout(height=350, showlegend=False, margin=dict(t=20, b=20))
+    st.plotly_chart(fig_bar, width="stretch")
 
 # -----------------------------------------------------------------------------
 # Raw Data Exploration
